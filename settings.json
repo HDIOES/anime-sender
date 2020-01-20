@@ -1,4 +1,8 @@
 {
     "telegramUrl": "https://api.telegram.org/bot",
-    "telegramToken": "706116662:AAHYz-2eI9fpqjrToe4Sd9qrO_dRVXTF7Dc"
+    "telegramToken": "706116662:AAHYz-2eI9fpqjrToe4Sd9qrO_dRVXTF7Dc",
+    "natsUrl": "nats://127.0.0.1:4222",
+    "natsSubject": "notifications",
+    "pathToPublicKey": "/home/developer/webhook_cert.pem",
+    "webhook": "https://google.com/receive"
 }

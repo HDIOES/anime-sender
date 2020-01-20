@@ -3,9 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -21,6 +26,8 @@ type TelegramService struct {
 
 func (ts *TelegramService) receiveNotification(msg *nats.Msg) {
 	if notification, notificationErr := decodeNotification(msg); notificationErr != nil {
+		fmt.Println(notificationErr)
+	} else {
 		switch notification.Type {
 		case "startCommand":
 			{
@@ -46,6 +53,12 @@ func (ts *TelegramService) receiveNotification(msg *nats.Msg) {
 					fmt.Println(err)
 				}
 			}
+		case "setWebhookNotification":
+			{
+				if err := ts.sendSetWebhookMessage(notification); err != nil {
+					fmt.Println(err)
+				}
+			}
 		}
 	}
 }
@@ -65,7 +78,6 @@ type Notification struct {
 	Type       string         `json:"type"`
 	Text       string         `json:"text"`
 	Animes     []dao.AnimeDTO `json:"animes"`
-	WebhookURL string         `json:"webhookUrl"`
 }
 
 func (ts *TelegramService) sendStartMessage(notification *Notification) error {
@@ -136,6 +148,48 @@ func (ts *TelegramService) sendDefaultMessage(notification *Notification) error 
 	_, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 	if resErr != nil {
 		return resErr
+	}
+	return nil
+}
+
+func (ts *TelegramService) sendSetWebhookMessage(notification *Notification) error {
+	file, err := os.Open(ts.Settings.PathToPublicKey)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	//write certificate
+	part, err := writer.CreateFormFile("certificate", filepath.Base(file.Name()))
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(part, file)
+	if copyErr != nil {
+		return copyErr
+	}
+	//write url
+	writeFieldErr := writer.WriteField("url", ts.Settings.WebhookURL)
+	if writeFieldErr != nil {
+		return writeFieldErr
+	}
+	writeErr := writer.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	request, reqErr := http.NewRequest("POST", ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/setWebhook", body)
+	if reqErr != nil {
+		return reqErr
+	}
+	request.Header.Add("Content-Type", writer.FormDataContentType())
+	res, resErr := ts.Client.Do(request)
+	if resErr != nil {
+		return resErr
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return errors.New("Http status not equals 200")
 	}
 	return nil
 }

@@ -46,8 +46,10 @@ func main() {
 
 //Settings mapping object for settings.json
 type Settings struct {
-	NatsURL       string `json:"natsUrl"`
-	NatsSubject   string `json:"natsSubject"`
-	TelegramToken string `json:"telegramToken"`
-	TelegramURL   string `json:"telegramUrl"`
+	NatsURL         string `json:"natsUrl"`
+	NatsSubject     string `json:"natsSubject"`
+	TelegramToken   string `json:"telegramToken"`
+	TelegramURL     string `json:"telegramUrl"`
+	PathToPublicKey string `json:"pathToPublicKey"`
+	WebhookURL      string `json:"webhook"`
 }
