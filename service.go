@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/HDIOES/anime-app/dao"
 	"github.com/nats-io/nats.go"
 )
 
@@ -74,10 +73,10 @@ func decodeNotification(msg *nats.Msg) (*Notification, error) {
 
 //Notification struct
 type Notification struct {
-	TelegramID int64          `json:"telegramId"`
-	Type       string         `json:"type"`
-	Text       string         `json:"text"`
-	Animes     []dao.AnimeDTO `json:"animes"`
+	TelegramID int64    `json:"telegramId"`
+	Type       string   `json:"type"`
+	Text       string   `json:"text"`
+	Animes     []string `json:"animes"`
 }
 
 func (ts *TelegramService) sendStartMessage(notification *Notification) error {
@@ -102,7 +101,7 @@ func (ts *TelegramService) sendAnimesMessage(notification *Notification) error {
 	for i := 0; i < count; i++ {
 		sendMessage.ReplyMarkup.InlineKeyboard[i] = make([]InlineKeyboardButton, 1)
 		sendMessage.ReplyMarkup.InlineKeyboard[i][0] = InlineKeyboardButton{
-			Text: notification.Animes[i].EngName,
+			Text: notification.Animes[i],
 		}
 	}
 	data, err := json.Marshal(sendMessage)
@@ -127,7 +126,7 @@ func (ts *TelegramService) sendSubscriptionsMessage(notification *Notification) 
 	for i := 0; i < count; i++ {
 		sendMessage.ReplyMarkup.InlineKeyboard[i] = make([]InlineKeyboardButton, 1)
 		sendMessage.ReplyMarkup.InlineKeyboard[i][0] = InlineKeyboardButton{
-			Text: notification.Animes[i].EngName,
+			Text: notification.Animes[i],
 		}
 	}
 	data, err := json.Marshal(sendMessage)
