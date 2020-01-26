@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/nats-io/nats.go"
+	"github.com/pkg/errors"
 	"go.uber.org/dig"
 )
 
@@ -52,4 +53,20 @@ type Settings struct {
 	TelegramURL     string `json:"telegramUrl"`
 	PathToPublicKey string `json:"pathToPublicKey"`
 	WebhookURL      string `json:"webhook"`
+}
+
+//StackTracer struct
+type StackTracer interface {
+	StackTrace() errors.StackTrace
+}
+
+//HandleError func
+func HandleError(handledErr error) {
+	if err, ok := handledErr.(StackTracer); ok {
+		for _, f := range err.StackTrace() {
+			log.Printf("%+s:%d\n", f, f)
+		}
+	} else {
+		log.Println("Unknown error: ", err)
+	}
 }

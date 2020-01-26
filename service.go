@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -15,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/nats-io/nats.go"
+	"github.com/pkg/errors"
 )
 
 //TelegramService struct
@@ -25,37 +24,37 @@ type TelegramService struct {
 
 func (ts *TelegramService) receiveNotification(msg *nats.Msg) {
 	if notification, notificationErr := decodeNotification(msg); notificationErr != nil {
-		fmt.Println(notificationErr)
+		HandleError(notificationErr)
 	} else {
 		switch notification.Type {
 		case "startCommand":
 			{
 				if err := ts.sendStartMessage(notification); err != nil {
-					fmt.Println(err)
+					HandleError(err)
 				}
 			}
 		case "animesCommand":
 			{
 				if err := ts.sendAnimesMessage(notification); err != nil {
-					fmt.Println(err)
+					HandleError(err)
 				}
 			}
 		case "subscriptionsCommand":
 			{
 				if err := ts.sendSubscriptionsMessage(notification); err != nil {
-					fmt.Println(err)
+					HandleError(err)
 				}
 			}
 		case "defaultCommand":
 			{
 				if err := ts.sendDefaultMessage(notification); err != nil {
-					fmt.Println(err)
+					HandleError(err)
 				}
 			}
 		case "setWebhookNotification":
 			{
 				if err := ts.sendSetWebhookMessage(notification); err != nil {
-					fmt.Println(err)
+					HandleError(err)
 				}
 			}
 		}
@@ -66,7 +65,7 @@ func decodeNotification(msg *nats.Msg) (*Notification, error) {
 	notification := &Notification{}
 	unmarshalErr := json.Unmarshal(msg.Data, notification)
 	if unmarshalErr != nil {
-		return nil, unmarshalErr
+		return nil, errors.WithStack(unmarshalErr)
 	}
 	return notification, nil
 }
@@ -85,7 +84,7 @@ func (ts *TelegramService) sendStartMessage(notification *Notification) error {
 	data.Set("chat_id", strconv.FormatInt(notification.TelegramID, 10))
 	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 	if resErr != nil {
-		return resErr
+		return errors.WithStack(resErr)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
@@ -110,11 +109,11 @@ func (ts *TelegramService) sendAnimesMessage(notification *Notification) error {
 	}
 	data, err := json.Marshal(sendMessage)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/json", bytes.NewReader(data))
 	if resErr != nil {
-		return resErr
+		return errors.WithStack(resErr)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
@@ -139,11 +138,11 @@ func (ts *TelegramService) sendSubscriptionsMessage(notification *Notification) 
 	}
 	data, err := json.Marshal(sendMessage)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/json", bytes.NewReader(data))
 	if resErr != nil {
-		return resErr
+		return errors.WithStack(resErr)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
@@ -158,7 +157,7 @@ func (ts *TelegramService) sendDefaultMessage(notification *Notification) error 
 	data.Set("chat_id", strconv.FormatInt(notification.TelegramID, 10))
 	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 	if resErr != nil {
-		return resErr
+		return errors.WithStack(resErr)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
@@ -170,7 +169,7 @@ func (ts *TelegramService) sendDefaultMessage(notification *Notification) error 
 func (ts *TelegramService) sendSetWebhookMessage(notification *Notification) error {
 	file, err := os.Open(ts.Settings.PathToPublicKey)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	defer file.Close()
 	body := new(bytes.Buffer)
@@ -178,29 +177,29 @@ func (ts *TelegramService) sendSetWebhookMessage(notification *Notification) err
 	//write certificate
 	part, err := writer.CreateFormFile("certificate", filepath.Base(file.Name()))
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	_, copyErr := io.Copy(part, file)
 	if copyErr != nil {
-		return copyErr
+		return errors.WithStack(copyErr)
 	}
 	//write url
 	writeFieldErr := writer.WriteField("url", ts.Settings.WebhookURL)
 	if writeFieldErr != nil {
-		return writeFieldErr
+		return errors.WithStack(writeFieldErr)
 	}
 	writeErr := writer.Close()
 	if writeErr != nil {
-		return writeErr
+		return errors.WithStack(writeErr)
 	}
 	request, reqErr := http.NewRequest("POST", ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/setWebhook", body)
 	if reqErr != nil {
-		return reqErr
+		return errors.WithStack(reqErr)
 	}
 	request.Header.Add("Content-Type", writer.FormDataContentType())
 	res, resErr := ts.Client.Do(request)
 	if resErr != nil {
-		return resErr
+		return errors.WithStack(resErr)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
