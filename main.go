@@ -15,22 +15,23 @@ func main() {
 	container := dig.New()
 	container.Provide(func() *Settings {
 		if jsonFile, openErr := os.Open("settings.json"); openErr != nil {
-			panic(openErr)
+			log.Panicln(openErr)
 		} else {
 			defer jsonFile.Close()
 			decoder := json.NewDecoder(jsonFile)
 			settings := &Settings{}
 			if decodeErr := decoder.Decode(settings); decodeErr != nil {
-				panic(decodeErr)
+				log.Panicln(decodeErr)
 			} else {
 				return settings
 			}
 		}
+		panic("Unreachable code")
 	})
 	container.Provide(func(settings *Settings) (*nats.Conn, *TelegramService) {
 		natsConnection, ncErr := nats.Connect(settings.NatsURL)
 		if ncErr != nil {
-			panic(ncErr)
+			log.Panicln(ncErr)
 		}
 		service := &TelegramService{
 			Client:   &http.Client{},
