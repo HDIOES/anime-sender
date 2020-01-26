@@ -83,9 +83,13 @@ func (ts *TelegramService) sendStartMessage(notification *Notification) error {
 	data := url.Values{}
 	data.Set("text", notification.Text)
 	data.Set("chat_id", strconv.FormatInt(notification.TelegramID, 10))
-	_, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
+	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 	if resErr != nil {
 		return resErr
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return errors.New("Http status not equals 200")
 	}
 	return nil
 }
@@ -94,13 +98,13 @@ func (ts *TelegramService) sendAnimesMessage(notification *Notification) error {
 	sendMessage := SendMessage{
 		ChatID:      notification.TelegramID,
 		Text:        notification.Text,
-		ReplyMarkup: InlineKeyboardMarkup{},
+		ReplyMarkup: ReplyKeyboardMarkup{},
 	}
 	count := len(notification.Animes)
-	sendMessage.ReplyMarkup.InlineKeyboard = make([][]InlineKeyboardButton, count)
+	sendMessage.ReplyMarkup.Keyboard = make([][]KeyboardButton, count)
 	for i := 0; i < count; i++ {
-		sendMessage.ReplyMarkup.InlineKeyboard[i] = make([]InlineKeyboardButton, 1)
-		sendMessage.ReplyMarkup.InlineKeyboard[i][0] = InlineKeyboardButton{
+		sendMessage.ReplyMarkup.Keyboard[i] = make([]KeyboardButton, 1)
+		sendMessage.ReplyMarkup.Keyboard[i][0] = KeyboardButton{
 			Text: notification.Animes[i],
 		}
 	}
@@ -108,9 +112,13 @@ func (ts *TelegramService) sendAnimesMessage(notification *Notification) error {
 	if err != nil {
 		return err
 	}
-	_, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/json", bytes.NewReader(data))
+	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/json", bytes.NewReader(data))
 	if resErr != nil {
 		return resErr
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return errors.New("Http status not equals 200")
 	}
 	return nil
 }
@@ -119,13 +127,13 @@ func (ts *TelegramService) sendSubscriptionsMessage(notification *Notification) 
 	sendMessage := SendMessage{
 		ChatID:      notification.TelegramID,
 		Text:        notification.Text,
-		ReplyMarkup: InlineKeyboardMarkup{},
+		ReplyMarkup: ReplyKeyboardMarkup{},
 	}
 	count := len(notification.Animes)
-	sendMessage.ReplyMarkup.InlineKeyboard = make([][]InlineKeyboardButton, count)
+	sendMessage.ReplyMarkup.Keyboard = make([][]KeyboardButton, count)
 	for i := 0; i < count; i++ {
-		sendMessage.ReplyMarkup.InlineKeyboard[i] = make([]InlineKeyboardButton, 1)
-		sendMessage.ReplyMarkup.InlineKeyboard[i][0] = InlineKeyboardButton{
+		sendMessage.ReplyMarkup.Keyboard[i] = make([]KeyboardButton, 1)
+		sendMessage.ReplyMarkup.Keyboard[i][0] = KeyboardButton{
 			Text: notification.Animes[i],
 		}
 	}
@@ -133,9 +141,13 @@ func (ts *TelegramService) sendSubscriptionsMessage(notification *Notification) 
 	if err != nil {
 		return err
 	}
-	_, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/json", bytes.NewReader(data))
+	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/json", bytes.NewReader(data))
 	if resErr != nil {
 		return resErr
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return errors.New("Http status not equals 200")
 	}
 	return nil
 }
@@ -144,9 +156,13 @@ func (ts *TelegramService) sendDefaultMessage(notification *Notification) error 
 	data := url.Values{}
 	data.Set("text", notification.Text)
 	data.Set("chat_id", strconv.FormatInt(notification.TelegramID, 10))
-	_, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
+	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 	if resErr != nil {
 		return resErr
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return errors.New("Http status not equals 200")
 	}
 	return nil
 }
@@ -195,17 +211,17 @@ func (ts *TelegramService) sendSetWebhookMessage(notification *Notification) err
 
 //SendMessage struct
 type SendMessage struct {
-	ChatID      int64                `json:"chat_id"`
-	Text        string               `json:"text"`
-	ReplyMarkup InlineKeyboardMarkup `json:"reply_markup"`
+	ChatID      int64               `json:"chat_id"`
+	Text        string              `json:"text"`
+	ReplyMarkup ReplyKeyboardMarkup `json:"reply_markup"`
 }
 
-//InlineKeyboardMarkup struct
-type InlineKeyboardMarkup struct {
-	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
+//ReplyKeyboardMarkup struct
+type ReplyKeyboardMarkup struct {
+	Keyboard [][]KeyboardButton `json:"keyboard"`
 }
 
-//InlineKeyboardButton struct
-type InlineKeyboardButton struct {
+//KeyboardButton struct
+type KeyboardButton struct {
 	Text string `json:"text"`
 }
