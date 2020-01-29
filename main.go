@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
@@ -41,7 +42,7 @@ func main() {
 	})
 	container.Invoke(func(settings *Settings, telegramService *TelegramService, natsConnection *nats.Conn) {
 		natsConnection.Subscribe(settings.NatsSubject, telegramService.receiveNotification)
-		srv := &http.Server{Addr: ":8001"}
+		srv := &http.Server{Addr: ":" + strconv.Itoa(settings.ApplicationPort)}
 		log.Fatal(srv.ListenAndServe())
 	})
 }
@@ -52,6 +53,7 @@ type Settings struct {
 	NatsSubject     string `json:"natsSubject"`
 	TelegramToken   string `json:"telegramToken"`
 	TelegramURL     string `json:"telegramUrl"`
+	ApplicationPort int    `json:"port"`
 	PathToPublicKey string `json:"pathToPublicKey"`
 	WebhookURL      string `json:"webhook"`
 }
