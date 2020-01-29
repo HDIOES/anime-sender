@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+anime-sender
 
 # Test binary, built with `go test -c`
 *.test
