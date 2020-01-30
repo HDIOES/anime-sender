@@ -12,6 +12,16 @@ import (
 	"go.uber.org/dig"
 )
 
+const (
+	telegramToken          = "TELEGRAM_TOKEN"
+	telegramURL            = "TELEGRAM_URL"
+	pathToPublicKey        = "PATH_TO_PUBLIC_KEY"
+	applicationPortEnvName = "PORT"
+	natsURLEnvName         = "NATS_URL"
+	natsSubjectEnvName     = "NATS_SUBJECT"
+	webhook                = "WEBHOOK_URL"
+)
+
 func main() {
 	container := dig.New()
 	container.Provide(func() *Settings {
@@ -24,6 +34,7 @@ func main() {
 			if decodeErr := decoder.Decode(settings); decodeErr != nil {
 				log.Panicln(decodeErr)
 			} else {
+				setSettingsFromEnv(settings)
 				return settings
 			}
 		}
@@ -71,5 +82,33 @@ func HandleError(handledErr error) {
 		}
 	} else {
 		log.Println("Unknown error: ", err)
+	}
+}
+
+func setSettingsFromEnv(settings *Settings) {
+	if value := os.Getenv(telegramToken); value != "" {
+		settings.TelegramToken = value
+	}
+	if value := os.Getenv(telegramURL); value != "" {
+		settings.TelegramURL = value
+	}
+	if value := os.Getenv(pathToPublicKey); value != "" {
+		settings.PathToPublicKey = value
+	}
+	if value := os.Getenv(webhook); value != "" {
+		settings.WebhookURL = value
+	}
+	if value := os.Getenv(applicationPortEnvName); value != "" {
+		if intValue, err := strconv.Atoi(value); err != nil {
+			log.Panicln(err)
+		} else {
+			settings.ApplicationPort = intValue
+		}
+	}
+	if value := os.Getenv(natsURLEnvName); value != "" {
+		settings.NatsURL = value
+	}
+	if value := os.Getenv(natsSubjectEnvName); value != "" {
+		settings.NatsSubject = value
 	}
 }
