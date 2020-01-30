@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -45,8 +46,13 @@ func main() {
 		if ncErr != nil {
 			log.Panicln(ncErr)
 		}
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
 		service := &TelegramService{
-			Client:   &http.Client{},
+			Client: &http.Client{
+				Transport: transport,
+			},
 			Settings: settings,
 		}
 		return natsConnection, service
