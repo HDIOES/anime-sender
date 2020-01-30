@@ -1,5 +1,5 @@
 FROM debian:stretch
 COPY anime-sender ./
 COPY settings.json ./
-COPY webhook_cert.pem ./
+COPY public.pem ./
 ENTRYPOINT ["./anime-sender"]
