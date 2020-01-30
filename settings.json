@@ -4,6 +4,6 @@
     "telegramToken": "706116662:AAHYz-2eI9fpqjrToe4Sd9qrO_dRVXTF7Dc",
     "telegramUrl": "http://51.83.203.120/telegram/bot",
     "port": 8001,
-    "pathToPublicKey": "/home/developer/webhook_cert.pem",
+    "pathToPublicKey": "webhook_cert.pem",
     "webhook": "http://51.83.203.120/receive"
 }
