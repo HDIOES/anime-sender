@@ -5,5 +5,5 @@
     "telegramUrl": "http://51.83.203.120/telegram/bot",
     "port": 8001,
     "pathToPublicKey": "webhook_cert.pem",
-    "webhook": "http://51.83.203.120/receive"
+    "webhook": "https://51.83.203.120/receive"
 }
