@@ -1,7 +1,7 @@
 {
     "natsUrl": "nats://127.0.0.1:4222",
     "natsSubject": "notifications",
-    "telegramToken": "706116662:AAHYz-2eI9fpqjrToe4Sd9qrO_dRVXTF7Dc",
+    "telegramToken": "1085298882:AAGXKI67Jr2Mi6v8Qa-M6E_-wbFPJ0XacpE",
     "telegramUrl": "https://51.83.203.120/telegram/bot",
     "port": 8001,
     "pathToPublicKey": "public.pem",
