@@ -44,7 +44,7 @@ func (hg *HTTPGateway) PostWithApplicationForm(resourceURL string, parameters ma
 		return 0, errors.WithStack(writeErr)
 	}
 	//do request
-	return hg.uploadWithContentType(resourceURL, "application/x-www-form-urlencoded", body)
+	return hg.doRequestWithContentType(resourceURL, "application/x-www-form-urlencoded", body)
 }
 
 func appendFile(parameterName string, file *os.File, requestWriter *multipart.Writer) error {
@@ -72,10 +72,10 @@ func (hg *HTTPGateway) PostWithJSONApplication(resourceURL string, jsonObj inter
 		return 0, errors.WithStack(writeErr)
 	}
 	//do request
-	return hg.uploadWithContentType(resourceURL, "application/json", body)
+	return hg.doRequestWithContentType(resourceURL, "application/json", body)
 }
 
-func (hg *HTTPGateway) uploadWithContentType(resourceURL, contentType string, body io.Reader) (int, error) {
+func (hg *HTTPGateway) doRequestWithContentType(resourceURL, contentType string, body io.Reader) (int, error) {
 	request, err := http.NewRequest("POST", resourceURL, body)
 	if err != nil {
 		return 0, errors.WithStack(err)
