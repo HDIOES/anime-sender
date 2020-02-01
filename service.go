@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"strings"
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
@@ -59,6 +60,9 @@ func decodeNotification(msg *nats.Msg) (*Notification, error) {
 	if unmarshalErr != nil {
 		return nil, errors.WithStack(unmarshalErr)
 	}
+	stringLogBuilder := strings.Builder{}
+	stringLogBuilder.WriteString("NATS message body:\n")
+	stringLogBuilder.Write(msg.Data)
 	return notification, nil
 }
 
