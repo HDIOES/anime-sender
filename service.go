@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"strings"
 
@@ -63,6 +64,8 @@ func decodeNotification(msg *nats.Msg) (*Notification, error) {
 	stringLogBuilder := strings.Builder{}
 	stringLogBuilder.WriteString("NATS message body:\n")
 	stringLogBuilder.Write(msg.Data)
+	stringLogBuilder.WriteString("\n")
+	log.Print(stringLogBuilder)
 	return notification, nil
 }
 
