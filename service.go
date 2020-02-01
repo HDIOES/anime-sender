@@ -1,16 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
-	"mime/multipart"
-	"net/http"
-	"net/url"
 	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
@@ -18,8 +10,8 @@ import (
 
 //TelegramService struct
 type TelegramService struct {
-	Client   *http.Client
-	Settings *Settings
+	HTTPGateway *HTTPGateway
+	Settings    *Settings
 }
 
 func (ts *TelegramService) receiveNotification(msg *nats.Msg) {
@@ -79,15 +71,15 @@ type Notification struct {
 }
 
 func (ts *TelegramService) sendStartMessage(notification *Notification) error {
-	data := url.Values{}
-	data.Set("text", notification.Text)
-	data.Set("chat_id", strconv.FormatInt(notification.TelegramID, 10))
-	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
+	sendMessage := SendMessage{
+		Text:   notification.Text,
+		ChatID: notification.TelegramID,
+	}
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", sendMessage)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
+	if httpStatus != 200 {
 		return errors.New("Http status not equals 200")
 	}
 	return nil
@@ -97,7 +89,7 @@ func (ts *TelegramService) sendAnimesMessage(notification *Notification) error {
 	sendMessage := SendMessage{
 		ChatID:      notification.TelegramID,
 		Text:        notification.Text,
-		ReplyMarkup: ReplyKeyboardMarkup{},
+		ReplyMarkup: &ReplyKeyboardMarkup{},
 	}
 	count := len(notification.Animes)
 	sendMessage.ReplyMarkup.Keyboard = make([][]KeyboardButton, count)
@@ -107,16 +99,11 @@ func (ts *TelegramService) sendAnimesMessage(notification *Notification) error {
 			Text: notification.Animes[i],
 		}
 	}
-	data, err := json.Marshal(sendMessage)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/json", bytes.NewReader(data))
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", sendMessage)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
+	if httpStatus != 200 {
 		return errors.New("Http status not equals 200")
 	}
 	return nil
@@ -126,7 +113,7 @@ func (ts *TelegramService) sendSubscriptionsMessage(notification *Notification) 
 	sendMessage := SendMessage{
 		ChatID:      notification.TelegramID,
 		Text:        notification.Text,
-		ReplyMarkup: ReplyKeyboardMarkup{},
+		ReplyMarkup: &ReplyKeyboardMarkup{},
 	}
 	count := len(notification.Animes)
 	sendMessage.ReplyMarkup.Keyboard = make([][]KeyboardButton, count)
@@ -136,31 +123,26 @@ func (ts *TelegramService) sendSubscriptionsMessage(notification *Notification) 
 			Text: notification.Animes[i],
 		}
 	}
-	data, err := json.Marshal(sendMessage)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/json", bytes.NewReader(data))
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", sendMessage)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
+	if httpStatus != 200 {
 		return errors.New("Http status not equals 200")
 	}
 	return nil
 }
 
 func (ts *TelegramService) sendDefaultMessage(notification *Notification) error {
-	data := url.Values{}
-	data.Set("text", notification.Text)
-	data.Set("chat_id", strconv.FormatInt(notification.TelegramID, 10))
-	res, resErr := ts.Client.Post(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
+	sendMessage := SendMessage{
+		ChatID: notification.TelegramID,
+		Text:   notification.Text,
+	}
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", sendMessage)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
+	if httpStatus != 200 {
 		return errors.New("Http status not equals 200")
 	}
 	return nil
@@ -172,37 +154,16 @@ func (ts *TelegramService) sendSetWebhookMessage(notification *Notification) err
 		return errors.WithStack(err)
 	}
 	defer file.Close()
-	body := new(bytes.Buffer)
-	writer := multipart.NewWriter(body)
+	parameters := make(map[string]interface{}, 2)
 	//write certificate
-	part, err := writer.CreateFormFile("certificate", filepath.Base(file.Name()))
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	_, copyErr := io.Copy(part, file)
-	if copyErr != nil {
-		return errors.WithStack(copyErr)
-	}
+	parameters["certificate"] = file
 	//write url
-	writeFieldErr := writer.WriteField("url", ts.Settings.WebhookURL)
-	if writeFieldErr != nil {
-		return errors.WithStack(writeFieldErr)
-	}
-	writeErr := writer.Close()
-	if writeErr != nil {
-		return errors.WithStack(writeErr)
-	}
-	request, reqErr := http.NewRequest("POST", ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/setWebhook", body)
-	if reqErr != nil {
-		return errors.WithStack(reqErr)
-	}
-	request.Header.Add("Content-Type", writer.FormDataContentType())
-	res, resErr := ts.Client.Do(request)
+	parameters["url"] = ts.Settings.WebhookURL
+	httpStatus, resErr := ts.HTTPGateway.PostWithApplicationForm(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/setWebhook", parameters)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
+	if httpStatus != 200 {
 		return errors.New("Http status not equals 200")
 	}
 	return nil
@@ -210,9 +171,9 @@ func (ts *TelegramService) sendSetWebhookMessage(notification *Notification) err
 
 //SendMessage struct
 type SendMessage struct {
-	ChatID      int64               `json:"chat_id"`
-	Text        string              `json:"text"`
-	ReplyMarkup ReplyKeyboardMarkup `json:"reply_markup"`
+	ChatID      int64                `json:"chat_id"`
+	Text        string               `json:"text"`
+	ReplyMarkup *ReplyKeyboardMarkup `json:"reply_markup,omitempty"`
 }
 
 //ReplyKeyboardMarkup struct

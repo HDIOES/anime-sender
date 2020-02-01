@@ -46,12 +46,13 @@ func main() {
 		if ncErr != nil {
 			log.Panicln(ncErr)
 		}
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
 		service := &TelegramService{
-			Client: &http.Client{
-				Transport: transport,
+			HTTPGateway: &HTTPGateway{
+				Client: &http.Client{
+					Transport: &http.Transport{
+						TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+					},
+				},
 			},
 			Settings: settings,
 		}
