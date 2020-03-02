@@ -2,12 +2,32 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
-	"os"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
+)
+
+//URLTemplate is const to initialize new URL
+const URLTemplate = "%s%s%s"
+
+const (
+	startType       = "startType"
+	answerQueryType = "answerQueryType"
+	subscribeType   = "subscribeType"
+	unsubscribeType = "unsubscribeType"
+	defaultType     = "defaultType"
+)
+
+const (
+	sendMessageURL            = "/sendMessage"
+	answerCallbackQueryURL    = "/answerCallbackQuery"
+	answerInlineQueryURL      = "/answerInlineQuery"
+	editMessageReplyMarkupURL = "/editMessageReplyMarkup"
 )
 
 //TelegramService struct
@@ -16,48 +36,66 @@ type TelegramService struct {
 	Settings    *Settings
 }
 
-func (ts *TelegramService) receiveNotification(msg *nats.Msg) {
-	if notification, notificationErr := decodeNotification(msg); notificationErr != nil {
-		HandleError(notificationErr)
+func (ts *TelegramService) receiveTelegramMessageFromQueue(msg *nats.Msg) {
+	errors := make([]error, 2)
+	if telegramMessage, decodeErr := decodeMessage(msg); decodeErr != nil {
+		errors = append(errors, decodeErr)
 	} else {
-		switch notification.Type {
-		case "startCommand":
+		switch telegramMessage.Type {
+		case startType:
 			{
-				if err := ts.sendStartMessage(notification); err != nil {
-					HandleError(err)
+				if telegramMessage.InlineAnime == nil {
+					if err := ts.sendStartMessage(telegramMessage); err != nil {
+						errors = append(errors, err)
+					}
+				} else {
+					if err := ts.animeInfoMessage(telegramMessage); err != nil {
+						errors = append(errors, err)
+					}
 				}
 			}
-		case "animesCommand":
+		case answerQueryType:
 			{
-				if err := ts.sendAnimesMessage(notification); err != nil {
-					HandleError(err)
+				if err := ts.answerInlineQuery(telegramMessage); err != nil {
+					errors = append(errors, err)
 				}
 			}
-		case "subscriptionsCommand":
+		case subscribeType:
 			{
-				if err := ts.sendSubscriptionsMessage(notification); err != nil {
-					HandleError(err)
+				answerErr, editMessageErr := ts.answerCallbackQueryWithSubscribeInfo(telegramMessage)
+				if answerErr != nil {
+					errors = append(errors, answerErr)
+				}
+				if editMessageErr != nil {
+					errors = append(errors, editMessageErr)
 				}
 			}
-		case "defaultCommand":
+		case unsubscribeType:
 			{
-				if err := ts.sendDefaultMessage(notification); err != nil {
-					HandleError(err)
+				answerErr, editMessageErr := ts.answerCallbackQueryWithUnsubscribeInfo(telegramMessage)
+				if answerErr != nil {
+					errors = append(errors, answerErr)
+				}
+				if editMessageErr != nil {
+					errors = append(errors, editMessageErr)
 				}
 			}
-		case "setWebhookNotification":
+		case defaultType:
 			{
-				if err := ts.sendSetWebhookMessage(notification); err != nil {
-					HandleError(err)
+				if err := ts.sendDefaultMessage(telegramMessage); err != nil {
+					errors = append(errors, err)
 				}
 			}
 		}
 	}
+	for _, e := range errors {
+		HandleError(e)
+	}
 }
 
-func decodeNotification(msg *nats.Msg) (*Notification, error) {
-	notification := &Notification{}
-	unmarshalErr := json.Unmarshal(msg.Data, notification)
+func decodeMessage(msg *nats.Msg) (*TelegramCommandMessage, error) {
+	message := &TelegramCommandMessage{}
+	unmarshalErr := json.Unmarshal(msg.Data, message)
 	if unmarshalErr != nil {
 		return nil, errors.WithStack(unmarshalErr)
 	}
@@ -66,23 +104,40 @@ func decodeNotification(msg *nats.Msg) (*Notification, error) {
 	stringLogBuilder.Write(msg.Data)
 	stringLogBuilder.WriteString("\n")
 	log.Print(stringLogBuilder)
-	return notification, nil
+	return message, nil
 }
 
-//Notification struct
-type Notification struct {
-	TelegramID int64    `json:"telegramId"`
-	Type       string   `json:"type"`
-	Text       string   `json:"text"`
-	Animes     []string `json:"animes"`
+//TelegramCommandMessage struct
+type TelegramCommandMessage struct {
+	Type string `json:"type"`
+	//fields for notification and /start
+	TelegramID  int64        `json:"telegramId"`
+	Text        string       `json:"text"`
+	InlineAnime *InlineAnime `json:"inlineAnime"`
+	//inline query fields
+	InlineQueryID string        `json:"inlineQueryId"`
+	InlineAnimes  []InlineAnime `json:"inlineAnimes"`
+	//fields for subscribe/unsubscribe action
+	ChatID          int64  `json:"chatId"`
+	MessageID       int64  `json:"messageId"`
+	CallbackQueryID string `json:"callback_query_id"`
+	InternalAnimeID int64  `json:"internal_anime_id"`
 }
 
-func (ts *TelegramService) sendStartMessage(notification *Notification) error {
+//InlineAnime struct
+type InlineAnime struct {
+	InternalID           int64  `json:"id"`
+	AnimeName            string `json:"animeName"`
+	AnimeThumbnailPicURL string `json:"animeThumbNailPicUrl"`
+	UserHasSubscription  bool   `json:"userHasSubscription"`
+}
+
+func (ts *TelegramService) sendStartMessage(message *TelegramCommandMessage) error {
 	sendMessage := SendMessage{
-		Text:   notification.Text,
-		ChatID: notification.TelegramID,
+		Text:   message.Text,
+		ChatID: message.TelegramID,
 	}
-	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", sendMessage)
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, sendMessageURL), sendMessage)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
@@ -92,21 +147,27 @@ func (ts *TelegramService) sendStartMessage(notification *Notification) error {
 	return nil
 }
 
-func (ts *TelegramService) sendAnimesMessage(notification *Notification) error {
-	sendMessage := SendMessage{
-		ChatID:      notification.TelegramID,
-		Text:        notification.Text,
-		ReplyMarkup: &ReplyKeyboardMarkup{},
+func (ts *TelegramService) animeInfoMessage(message *TelegramCommandMessage) error {
+	sendPhoto := SendPhoto{
+		ChatID:      message.TelegramID,
+		Caption:     message.InlineAnime.AnimeName,
+		Photo:       message.InlineAnime.AnimeThumbnailPicURL,
+		ReplyMarkup: &InlineKeyboardMarkup{},
 	}
-	count := len(notification.Animes)
-	sendMessage.ReplyMarkup.Keyboard = make([][]KeyboardButton, count)
-	for i := 0; i < count; i++ {
-		sendMessage.ReplyMarkup.Keyboard[i] = make([]KeyboardButton, 1)
-		sendMessage.ReplyMarkup.Keyboard[i][0] = KeyboardButton{
-			Text: notification.Animes[i],
+	sendPhoto.ReplyMarkup.Keyboard = make([][]InlineKeyboardButton, 1)
+	sendPhoto.ReplyMarkup.Keyboard[0] = make([]InlineKeyboardButton, 1)
+	if message.InlineAnime.UserHasSubscription {
+		sendPhoto.ReplyMarkup.Keyboard[0][0] = InlineKeyboardButton{
+			Text:         "Отписаться",
+			CallbackData: fmt.Sprintf("unsub %d", message.InlineAnime.InternalID),
+		}
+	} else {
+		sendPhoto.ReplyMarkup.Keyboard[0][0] = InlineKeyboardButton{
+			Text:         "Подписаться",
+			CallbackData: fmt.Sprintf("sub %d", message.InlineAnime.InternalID),
 		}
 	}
-	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", sendMessage)
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, sendMessageURL), sendPhoto)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
@@ -116,21 +177,43 @@ func (ts *TelegramService) sendAnimesMessage(notification *Notification) error {
 	return nil
 }
 
-func (ts *TelegramService) sendSubscriptionsMessage(notification *Notification) error {
+func (ts *TelegramService) sendDefaultMessage(message *TelegramCommandMessage) error {
 	sendMessage := SendMessage{
-		ChatID:      notification.TelegramID,
-		Text:        notification.Text,
-		ReplyMarkup: &ReplyKeyboardMarkup{},
+		ChatID: message.TelegramID,
+		Text:   message.Text,
 	}
-	count := len(notification.Animes)
-	sendMessage.ReplyMarkup.Keyboard = make([][]KeyboardButton, count)
-	for i := 0; i < count; i++ {
-		sendMessage.ReplyMarkup.Keyboard[i] = make([]KeyboardButton, 1)
-		sendMessage.ReplyMarkup.Keyboard[i][0] = KeyboardButton{
-			Text: notification.Animes[i],
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, sendMessageURL), sendMessage)
+	if resErr != nil {
+		return errors.WithStack(resErr)
+	}
+	if httpStatus != 200 {
+		return errors.New("Http status not equals 200")
+	}
+	return nil
+}
+
+func (ts *TelegramService) answerInlineQuery(message *TelegramCommandMessage) error {
+	answerInlineQuery := AnswerInlineQuery{
+		InlineQueryID: message.InlineQueryID,
+	}
+	answerInlineQuery.Results = make([]InlineQueryResultPhoto, len(message.InlineAnimes))
+	for i, anime := range message.InlineAnimes {
+		answerInlineQuery.Results = append(answerInlineQuery.Results, InlineQueryResultPhoto{
+			Type:        "photo",
+			ID:          strconv.Itoa(i),
+			PhotoURL:    anime.AnimeThumbnailPicURL,
+			ThumbURL:    anime.AnimeThumbnailPicURL,
+			Title:       anime.AnimeName,
+			ReplyMarkup: InlineKeyboardMarkup{},
+		})
+		answerInlineQuery.Results[i].ReplyMarkup.Keyboard = make([][]InlineKeyboardButton, 1)
+		answerInlineQuery.Results[i].ReplyMarkup.Keyboard[0] = make([]InlineKeyboardButton, 1)
+		answerInlineQuery.Results[i].ReplyMarkup.Keyboard[0][0] = InlineKeyboardButton{
+			Text: "Подробнее",
+			URL:  fmt.Sprintf(ts.Settings.OngoingBotURL, anime.InternalID),
 		}
 	}
-	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", sendMessage)
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, answerInlineQueryURL), answerInlineQuery)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
@@ -140,33 +223,81 @@ func (ts *TelegramService) sendSubscriptionsMessage(notification *Notification) 
 	return nil
 }
 
-func (ts *TelegramService) sendDefaultMessage(notification *Notification) error {
-	sendMessage := SendMessage{
-		ChatID: notification.TelegramID,
-		Text:   notification.Text,
-	}
-	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/sendMessage", sendMessage)
-	if resErr != nil {
-		return errors.WithStack(resErr)
-	}
-	if httpStatus != 200 {
-		return errors.New("Http status not equals 200")
-	}
-	return nil
+func (ts *TelegramService) answerCallbackQueryWithSubscribeInfo(message *TelegramCommandMessage) (answerErr error, editMessageErr error) {
+	var answerCallbackBarrier sync.WaitGroup
+	answerCallbackBarrier.Add(2)
+	go func() {
+		defer answerCallbackBarrier.Done()
+		err := ts.answerCallbackQuery(message.CallbackQueryID)
+		if err != nil {
+			answerErr = err
+		}
+	}()
+	go func() {
+		defer answerCallbackBarrier.Done()
+		editMessageReplyMarkup := EditMessageReplyMarkup{
+			ChatID:      message.ChatID,
+			MessageID:   message.MessageID,
+			ReplyMarkup: InlineKeyboardMarkup{},
+		}
+		editMessageReplyMarkup.ReplyMarkup.Keyboard = make([][]InlineKeyboardButton, 1)
+		editMessageReplyMarkup.ReplyMarkup.Keyboard[0] = make([]InlineKeyboardButton, 1)
+		editMessageReplyMarkup.ReplyMarkup.Keyboard[0][0] = InlineKeyboardButton{
+			Text:         "Отписаться",
+			CallbackData: fmt.Sprintf("unsub %d", message.InternalAnimeID),
+		}
+		httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, editMessageReplyMarkupURL), editMessageReplyMarkup)
+		if resErr != nil {
+			editMessageErr = errors.WithStack(resErr)
+		}
+		if httpStatus != 200 {
+			editMessageErr = errors.New("Http status not equals 200")
+		}
+	}()
+	answerCallbackBarrier.Wait()
+	return nil, nil
 }
 
-func (ts *TelegramService) sendSetWebhookMessage(notification *Notification) error {
-	file, err := os.Open(ts.Settings.PathToPublicKey)
-	if err != nil {
-		return errors.WithStack(err)
+func (ts *TelegramService) answerCallbackQueryWithUnsubscribeInfo(message *TelegramCommandMessage) (answerErr error, editMessageErr error) {
+	var answerCallbackBarrier sync.WaitGroup
+	answerCallbackBarrier.Add(2)
+	go func() {
+		defer answerCallbackBarrier.Done()
+		err := ts.answerCallbackQuery(message.CallbackQueryID)
+		if err != nil {
+			answerErr = err
+		}
+	}()
+	go func() {
+		defer answerCallbackBarrier.Done()
+		editMessageReplyMarkup := EditMessageReplyMarkup{
+			ChatID:      message.ChatID,
+			MessageID:   message.MessageID,
+			ReplyMarkup: InlineKeyboardMarkup{},
+		}
+		editMessageReplyMarkup.ReplyMarkup.Keyboard = make([][]InlineKeyboardButton, 1)
+		editMessageReplyMarkup.ReplyMarkup.Keyboard[0] = make([]InlineKeyboardButton, 1)
+		editMessageReplyMarkup.ReplyMarkup.Keyboard[0][0] = InlineKeyboardButton{
+			Text:         "Подписаться",
+			CallbackData: fmt.Sprintf("sub %d", message.InternalAnimeID),
+		}
+		httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, editMessageReplyMarkupURL), editMessageReplyMarkup)
+		if resErr != nil {
+			editMessageErr = errors.WithStack(resErr)
+		}
+		if httpStatus != 200 {
+			editMessageErr = errors.New("Http status not equals 200")
+		}
+	}()
+	answerCallbackBarrier.Wait()
+	return nil, nil
+}
+
+func (ts *TelegramService) answerCallbackQuery(callbackQueryID string) error {
+	answerCallbackQuery := AnswerCallbackQuery{
+		CallbackQueryID: callbackQueryID,
 	}
-	defer file.Close()
-	parameters := make(map[string]interface{}, 2)
-	//write certificate
-	parameters["certificate"] = file
-	//write url
-	parameters["url"] = ts.Settings.WebhookURL
-	httpStatus, resErr := ts.HTTPGateway.PostWithApplicationForm(ts.Settings.TelegramURL+ts.Settings.TelegramToken+"/setWebhook", parameters)
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, answerCallbackQueryURL), answerCallbackQuery)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
@@ -178,17 +309,54 @@ func (ts *TelegramService) sendSetWebhookMessage(notification *Notification) err
 
 //SendMessage struct
 type SendMessage struct {
+	ChatID int64  `json:"chat_id"`
+	Text   string `json:"text"`
+}
+
+//SendPhoto struct
+type SendPhoto struct {
+	ChatID      int64                 `json:"chat_id"`
+	Photo       string                `json:"photo"`
+	Caption     string                `json:"caption"`
+	ReplyMarkup *InlineKeyboardMarkup `json:"reply_markup,omitempty"`
+}
+
+//AnswerInlineQuery struct
+type AnswerInlineQuery struct {
+	InlineQueryID string                   `json:"inline_query_id"`
+	Results       []InlineQueryResultPhoto `json:"results"`
+}
+
+//AnswerCallbackQuery struct
+type AnswerCallbackQuery struct {
+	CallbackQueryID string `json:"callback_query_id"`
+}
+
+//InlineQueryResultPhoto struct
+type InlineQueryResultPhoto struct {
+	Type        string               `json:"type"`
+	ID          string               `json:"id"`
+	PhotoURL    string               `json:"photo_url"`
+	ThumbURL    string               `json:"thumb_url"`
+	Title       string               `json:"title"`
+	ReplyMarkup InlineKeyboardMarkup `json:"reply_markup"`
+}
+
+//InlineKeyboardMarkup struct
+type InlineKeyboardMarkup struct {
+	Keyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
+}
+
+//InlineKeyboardButton struct
+type InlineKeyboardButton struct {
+	Text         string `json:"text"`
+	URL          string `json:"url"`
+	CallbackData string `json:"callback_data"`
+}
+
+//EditMessageReplyMarkup struct
+type EditMessageReplyMarkup struct {
 	ChatID      int64                `json:"chat_id"`
-	Text        string               `json:"text"`
-	ReplyMarkup *ReplyKeyboardMarkup `json:"reply_markup,omitempty"`
-}
-
-//ReplyKeyboardMarkup struct
-type ReplyKeyboardMarkup struct {
-	Keyboard [][]KeyboardButton `json:"keyboard"`
-}
-
-//KeyboardButton struct
-type KeyboardButton struct {
-	Text string `json:"text"`
+	MessageID   int64                `json:"message_id"`
+	ReplyMarkup InlineKeyboardMarkup `json:"reply_markup"`
 }

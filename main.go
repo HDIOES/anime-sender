@@ -59,7 +59,8 @@ func main() {
 		return natsConnection, service
 	})
 	container.Invoke(func(settings *Settings, telegramService *TelegramService, natsConnection *nats.Conn) {
-		natsConnection.Subscribe(settings.NatsSubject, telegramService.receiveNotification)
+		defer natsConnection.Close()
+		natsConnection.Subscribe(settings.NatsSubject, telegramService.receiveTelegramMessageFromQueue)
 		srv := &http.Server{Addr: ":" + strconv.Itoa(settings.ApplicationPort)}
 		log.Fatal(srv.ListenAndServe())
 	})
@@ -74,6 +75,7 @@ type Settings struct {
 	ApplicationPort int    `json:"port"`
 	PathToPublicKey string `json:"pathToPublicKey"`
 	WebhookURL      string `json:"webhook"`
+	OngoingBotURL   string `json:"ongoingBotUrl"`
 }
 
 //StackTracer struct

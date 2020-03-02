@@ -5,5 +5,6 @@
     "telegramUrl": "https://51.83.203.120/telegram/bot",
     "port": 8001,
     "pathToPublicKey": "public.pem",
-    "webhook": "https://51.83.203.120/receive"
+    "webhook": "https://51.83.203.120/receive",
+    "ongoingBotUrl": "https://t.me/OngoingBot?start=%d"
 }
