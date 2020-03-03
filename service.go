@@ -25,6 +25,7 @@ const (
 
 const (
 	sendMessageURL            = "/sendMessage"
+	sendPhotoURL              = "/sendPhoto"
 	answerCallbackQueryURL    = "/answerCallbackQuery"
 	answerInlineQueryURL      = "/answerInlineQuery"
 	editMessageReplyMarkupURL = "/editMessageReplyMarkup"
@@ -167,7 +168,7 @@ func (ts *TelegramService) animeInfoMessage(message *TelegramCommandMessage) err
 			CallbackData: fmt.Sprintf("sub %d", message.InlineAnime.InternalID),
 		}
 	}
-	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, sendMessageURL), sendPhoto)
+	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, sendPhotoURL), sendPhoto)
 	if resErr != nil {
 		return errors.WithStack(resErr)
 	}
