@@ -196,6 +196,7 @@ func (ts *TelegramService) sendDefaultMessage(message *TelegramCommandMessage) e
 func (ts *TelegramService) answerInlineQuery(message *TelegramCommandMessage) error {
 	answerInlineQuery := AnswerInlineQuery{
 		InlineQueryID: message.InlineQueryID,
+		CacheTime:     0,
 	}
 	answerInlineQuery.Results = make([]InlineQueryResultArticle, 0, len(message.InlineAnimes))
 	for i, anime := range message.InlineAnimes {
@@ -330,6 +331,7 @@ type SendPhoto struct {
 //AnswerInlineQuery struct
 type AnswerInlineQuery struct {
 	InlineQueryID string                     `json:"inline_query_id"`
+	CacheTime     int                        `json:"cache_time"`
 	Results       []InlineQueryResultArticle `json:"results"`
 }
 
