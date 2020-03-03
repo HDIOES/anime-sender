@@ -208,6 +208,9 @@ func (ts *TelegramService) answerInlineQuery(message *TelegramCommandMessage) er
 				MessageText: fmt.Sprintf("%s %s", anime.AnimeName, anime.AnimeThumbnailPicURL),
 			},
 		}
+		if anime.UserHasSubscription {
+			animeInfo.Description = "Подписка есть"
+		}
 		animeInfo.ReplyMarkup.Keyboard = make([][]InlineKeyboardButton, 1)
 		animeInfo.ReplyMarkup.Keyboard[0] = make([]InlineKeyboardButton, 1)
 		animeInfo.ReplyMarkup.Keyboard[0][0] = InlineKeyboardButton{
@@ -340,6 +343,7 @@ type InlineQueryResultArticle struct {
 	Type                    string                  `json:"type"`
 	ID                      string                  `json:"id"`
 	Title                   string                  `json:"title"`
+	Description             string                  `json:"description"`
 	ThumbURL                string                  `json:"thumb_url"`
 	InputTextMessageContent InputTextMessageContent `json:"input_message_content"`
 	ReplyMarkup             InlineKeyboardMarkup    `json:"reply_markup"`
