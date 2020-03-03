@@ -20,7 +20,8 @@ const (
 	applicationPortEnvName = "PORT"
 	natsURLEnvName         = "NATS_URL"
 	natsSubjectEnvName     = "NATS_SUBJECT"
-	webhook                = "WEBHOOK_URL"
+	webhookEnvName         = "WEBHOOK_URL"
+	ongoingBotURLEnvName   = "ONGOING_BOT_URL"
 )
 
 func main() {
@@ -104,7 +105,7 @@ func setSettingsFromEnv(settings *Settings) {
 	if value := os.Getenv(pathToPublicKey); value != "" {
 		settings.PathToPublicKey = value
 	}
-	if value := os.Getenv(webhook); value != "" {
+	if value := os.Getenv(webhookEnvName); value != "" {
 		settings.WebhookURL = value
 	}
 	if value := os.Getenv(applicationPortEnvName); value != "" {
@@ -119,5 +120,8 @@ func setSettingsFromEnv(settings *Settings) {
 	}
 	if value := os.Getenv(natsSubjectEnvName); value != "" {
 		settings.NatsSubject = value
+	}
+	if value := os.Getenv(ongoingBotURLEnvName); value != "" {
+		settings.OngoingBotURL = value
 	}
 }
