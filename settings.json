@@ -6,5 +6,5 @@
     "port": 8001,
     "pathToPublicKey": "public.pem",
     "webhook": "https://51.83.203.120/receive",
-    "ongoingBotUrl": "https://t.me/OngoingBot?start=%d"
+    "ongoingBotUrl": "https://t.me/FournaBot?start=%d"
 }
