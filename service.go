@@ -198,20 +198,20 @@ func (ts *TelegramService) answerInlineQuery(message *TelegramCommandMessage) er
 	}
 	answerInlineQuery.Results = make([]InlineQueryResultPhoto, len(message.InlineAnimes))
 	for i, anime := range message.InlineAnimes {
-		answerInlineQuery.Results = append(answerInlineQuery.Results, InlineQueryResultPhoto{
-			Type:        "photo",
-			ID:          strconv.Itoa(i),
-			PhotoURL:    anime.AnimeThumbnailPicURL,
-			ThumbURL:    anime.AnimeThumbnailPicURL,
-			Title:       anime.AnimeName,
-			ReplyMarkup: InlineKeyboardMarkup{},
-		})
-		answerInlineQuery.Results[i].ReplyMarkup.Keyboard = make([][]InlineKeyboardButton, 1)
-		answerInlineQuery.Results[i].ReplyMarkup.Keyboard[0] = make([]InlineKeyboardButton, 1)
-		answerInlineQuery.Results[i].ReplyMarkup.Keyboard[0][0] = InlineKeyboardButton{
+		animeInfo := InlineQueryResultPhoto{
+			Type:     "photo",
+			ID:       strconv.Itoa(i),
+			PhotoURL: anime.AnimeThumbnailPicURL,
+			ThumbURL: anime.AnimeThumbnailPicURL,
+			Title:    anime.AnimeName,
+		}
+		animeInfo.ReplyMarkup.Keyboard = make([][]InlineKeyboardButton, 1)
+		animeInfo.ReplyMarkup.Keyboard[0] = make([]InlineKeyboardButton, 1)
+		animeInfo.ReplyMarkup.Keyboard[0][0] = InlineKeyboardButton{
 			Text: "Подробнее",
 			URL:  fmt.Sprintf(ts.Settings.OngoingBotURL, anime.InternalID),
 		}
+		answerInlineQuery.Results = append(answerInlineQuery.Results, animeInfo)
 	}
 	httpStatus, resErr := ts.HTTPGateway.PostWithJSONApplication(fmt.Sprintf(URLTemplate, ts.Settings.TelegramURL, ts.Settings.TelegramToken, answerInlineQueryURL), answerInlineQuery)
 	if resErr != nil {
@@ -350,8 +350,8 @@ type InlineKeyboardMarkup struct {
 //InlineKeyboardButton struct
 type InlineKeyboardButton struct {
 	Text         string `json:"text"`
-	URL          string `json:"url"`
-	CallbackData string `json:"callback_data"`
+	URL          string `json:"url,omitempty"`
+	CallbackData string `json:"callback_data,omitempty"`
 }
 
 //EditMessageReplyMarkup struct
