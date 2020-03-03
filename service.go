@@ -196,14 +196,16 @@ func (ts *TelegramService) answerInlineQuery(message *TelegramCommandMessage) er
 	answerInlineQuery := AnswerInlineQuery{
 		InlineQueryID: message.InlineQueryID,
 	}
-	answerInlineQuery.Results = make([]InlineQueryResultPhoto, 0, len(message.InlineAnimes))
+	answerInlineQuery.Results = make([]InlineQueryResultArticle, 0, len(message.InlineAnimes))
 	for i, anime := range message.InlineAnimes {
-		animeInfo := InlineQueryResultPhoto{
-			Type:     "photo",
+		animeInfo := InlineQueryResultArticle{
+			Type:     "article",
 			ID:       strconv.Itoa(i),
-			PhotoURL: anime.AnimeThumbnailPicURL,
-			ThumbURL: anime.AnimeThumbnailPicURL,
 			Title:    anime.AnimeName,
+			ThumbURL: anime.AnimeThumbnailPicURL,
+			InputTextMessageContent: InputTextMessageContent{
+				MessageText: fmt.Sprintf("%s %s", anime.AnimeName, anime.AnimeThumbnailPicURL),
+			},
 		}
 		animeInfo.ReplyMarkup.Keyboard = make([][]InlineKeyboardButton, 1)
 		animeInfo.ReplyMarkup.Keyboard[0] = make([]InlineKeyboardButton, 1)
@@ -323,8 +325,8 @@ type SendPhoto struct {
 
 //AnswerInlineQuery struct
 type AnswerInlineQuery struct {
-	InlineQueryID string                   `json:"inline_query_id"`
-	Results       []InlineQueryResultPhoto `json:"results"`
+	InlineQueryID string                     `json:"inline_query_id"`
+	Results       []InlineQueryResultArticle `json:"results"`
 }
 
 //AnswerCallbackQuery struct
@@ -332,14 +334,19 @@ type AnswerCallbackQuery struct {
 	CallbackQueryID string `json:"callback_query_id"`
 }
 
-//InlineQueryResultPhoto struct
-type InlineQueryResultPhoto struct {
-	Type        string               `json:"type"`
-	ID          string               `json:"id"`
-	PhotoURL    string               `json:"photo_url"`
-	ThumbURL    string               `json:"thumb_url"`
-	Title       string               `json:"title"`
-	ReplyMarkup InlineKeyboardMarkup `json:"reply_markup"`
+//InlineQueryResultArticle struct
+type InlineQueryResultArticle struct {
+	Type                    string                  `json:"type"`
+	ID                      string                  `json:"id"`
+	Title                   string                  `json:"title"`
+	ThumbURL                string                  `json:"thumb_url"`
+	InputTextMessageContent InputTextMessageContent `json:"input_message_content"`
+	ReplyMarkup             InlineKeyboardMarkup    `json:"reply_markup"`
+}
+
+//InputTextMessageContent struct
+type InputTextMessageContent struct {
+	MessageText string `json:"message_text"`
 }
 
 //InlineKeyboardMarkup struct
