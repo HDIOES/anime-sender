@@ -38,7 +38,7 @@ type TelegramService struct {
 }
 
 func (ts *TelegramService) receiveTelegramMessageFromQueue(msg *nats.Msg) {
-	errors := make([]error, 2)
+	errors := make([]error, 0, 2)
 	if telegramMessage, decodeErr := decodeMessage(msg); decodeErr != nil {
 		errors = append(errors, decodeErr)
 	} else {
