@@ -1,9 +1,10 @@
 {
     "natsUrl": "nats://127.0.0.1:4222",
-    "natsSubject": "notifications",
+    "natsSubject": "telegramCommandMessages",
     "telegramToken": "1085298882:AAGXKI67Jr2Mi6v8Qa-M6E_-wbFPJ0XacpE",
     "telegramUrl": "https://51.83.203.120/telegram/bot",
     "port": 8001,
     "pathToPublicKey": "public.pem",
-    "webhook": "https://51.83.203.120/receive"
+    "webhook": "https://51.83.203.120/receive",
+    "ongoingBotUrl": "https://t.me/FournaBot?start=%d"
 }
