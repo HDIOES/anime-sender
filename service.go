@@ -196,7 +196,7 @@ func (ts *TelegramService) answerInlineQuery(message *TelegramCommandMessage) er
 	answerInlineQuery := AnswerInlineQuery{
 		InlineQueryID: message.InlineQueryID,
 	}
-	answerInlineQuery.Results = make([]InlineQueryResultPhoto, len(message.InlineAnimes))
+	answerInlineQuery.Results = make([]InlineQueryResultPhoto, 0, len(message.InlineAnimes))
 	for i, anime := range message.InlineAnimes {
 		animeInfo := InlineQueryResultPhoto{
 			Type:     "photo",
