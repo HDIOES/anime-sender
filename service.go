@@ -16,11 +16,12 @@ import (
 const URLTemplate = "%s%s%s"
 
 const (
-	startType       = "startType"
-	answerQueryType = "answerQueryType"
-	subscribeType   = "subscribeType"
-	unsubscribeType = "unsubscribeType"
-	defaultType     = "defaultType"
+	startType        = "startType"
+	answerQueryType  = "answerQueryType"
+	subscribeType    = "subscribeType"
+	unsubscribeType  = "unsubscribeType"
+	defaultType      = "defaultType"
+	notificationType = "notificationType"
 )
 
 const (
@@ -81,9 +82,15 @@ func (ts *TelegramService) receiveTelegramMessageFromQueue(msg *nats.Msg) {
 					errors = append(errors, editMessageErr)
 				}
 			}
-		case defaultType:
+		case notificationType:
 			{
-				if err := ts.sendDefaultMessage(telegramMessage); err != nil {
+				if err := ts.sendMessage(telegramMessage); err != nil {
+					errors = append(errors, err)
+				}
+			}
+		default:
+			{
+				if err := ts.sendMessage(telegramMessage); err != nil {
 					errors = append(errors, err)
 				}
 			}
@@ -178,7 +185,7 @@ func (ts *TelegramService) animeInfoMessage(message *TelegramCommandMessage) err
 	return nil
 }
 
-func (ts *TelegramService) sendDefaultMessage(message *TelegramCommandMessage) error {
+func (ts *TelegramService) sendMessage(message *TelegramCommandMessage) error {
 	sendMessage := SendMessage{
 		ChatID: message.TelegramID,
 		Text:   message.Text,
